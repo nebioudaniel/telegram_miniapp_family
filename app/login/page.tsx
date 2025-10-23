@@ -1,104 +1,113 @@
 // app/login/page.tsx
-"use client"
 
-import * as z from "zod"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { authenticate } from "@/lib/auth.actions"
-import { loginSchema } from "@/lib/validation/schemas"
-import { useTransition } from "react"
-import { toast } from "sonner"
+'use client';
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { signIn } from 'next-auth/react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-type LoginFormValues = z.infer<typeof loginSchema>
+// Import shadcn/ui components
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal } from "lucide-react"; // Icon for the error message
 
 export default function LoginPage() {
-  const [isPending, startTransition] = useTransition()
-  
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  })
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // State for loading
+  const router = useRouter();
 
-  const onSubmit = (data: LoginFormValues) => {
-    startTransition(async () => {
-      // Create a FormData object from the form data
-      const formData = new FormData()
-      formData.append("email", data.email)
-      formData.append("password", data.password)
+  // Changed the manual router.push('/') to a more explicit '/dashboard-redirect' 
+  // based on the previous context for clarity.
+  const handleRedirect = () => {
+    router.push('/dashboard-redirect');
+  };
 
-      const result = await authenticate(formData)
-      
-      if (result && result.error) {
-        toast.error(result.error)
-      } 
-      // Successful login handles redirection via Auth.js
-    })
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    const result = await signIn('credentials', {
+      redirect: false, // Don't redirect on sign-in attempt
+      email,
+      password,
+    });
+
+    setIsSubmitting(false);
+
+    if (result?.error) {
+      // The error message from the authorize function is usually a generic one
+      setError('Invalid email or password. Please try again.');
+      console.error(result.error);
+    } else {
+      // Success! Manually trigger the redirect handler.
+      handleRedirect(); 
+    }
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Login to Family Academy</CardTitle>
-          <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
+          <CardTitle className="text-2xl">Sign In</CardTitle>
+          <CardDescription>
+            Enter your email and password to access your dashboard.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            
+        <form onSubmit={handleSubmit}>
+          <CardContent className="grid gap-4">
+            {/* Error Message */}
+            {error && (
+              <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>Login Failed</AlertTitle>
+                <AlertDescription>
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Email Field */}
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="mister.smith@example.com" 
-                disabled={isPending}
-                {...form.register("email")}
+              <Input
+                id="email"
+                type="email"
+                placeholder="m@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
-              {form.formState.errors.email && (
-                <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
-              )}
             </div>
 
             {/* Password Field */}
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                disabled={isPending}
-                {...form.register("password")}
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
               />
-              {form.formState.errors.password && (
-                <p className="text-sm text-red-500">{form.formState.errors.password.message}</p>
-              )}
             </div>
-
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                "Sign In"
-              )}
+          </CardContent>
+          <CardFooter>
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isSubmitting} // Disable button while loading
+            >
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
             </Button>
-            
-          </form>
-          <div className="p-4 text-center text-gray-400"><p>Powerd By <a className="text-orange-500">Mesob Ai!</a></p></div>
-          
-        </CardContent>
+          </CardFooter>
+        </form>
       </Card>
     </div>
-  )
+  );
 }

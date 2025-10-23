@@ -1,4 +1,6 @@
-"use client"
+// app/teacher/courses/create/page.tsx
+
+'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -10,13 +12,17 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from 'sonner'
 import { createCourse } from '../_actions/course.actions'
-// 🚨 CHANGE 1: Import the function AND the required type for safe handling
 import { getSignedUploadSignature, SignedUploadResult } from '../_actions/upload.actions' 
 import { Save, Clock, BookOpen, Video, FileText, Bold, Italic, Underline, List, Heading, Link, Pilcrow, UploadCloud, CheckCircle, XCircle, LucideIcon, Type, Minus, Check, ChevronsUpDown } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils" 
+
+// 🔥 CRITICAL FIX CONSTANTS: Define the client-side max size to match the server (2.5 GB)
+const MAX_FILE_SIZE_GB = 100; 
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_GB * 1024 * 1024 * 1024;
+
 
 // Define the structure for Combobox options (RichTextEditor related, unchanged)
 type ComboboxOption = {
@@ -346,12 +352,22 @@ export default function CreateCoursePage() {
 
   const isAuthReady = true;
 
+  // 🔥 CRITICAL FIX: The logic in this function must perform the size check
   const handleFileUpload = (file: File) => {
     if (!file.type.startsWith('video/')) {
         setVideoUploadState(prev => ({ ...prev, error: "File must be a video." }));
         toast.error("File must be a video type.");
         return;
     }
+    
+    // 🔥 CRITICAL UX FIX: Client-side size check against the 2.5 GB limit
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+        const sizeError = `File size exceeds the limit of ${MAX_FILE_SIZE_GB}MB. Please select a smaller file.`;
+        setVideoUploadState(prev => ({ ...prev, error: sizeError, file: null, url: null }));
+        toast.error(sizeError);
+        return;
+    }
+
 
     const localURL = URL.createObjectURL(file);
     
@@ -364,7 +380,6 @@ export default function CreateCoursePage() {
     });
   };
 
-  // 🚨 FIXED: Updated handleSubmit to manage the direct upload flow
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -380,27 +395,22 @@ export default function CreateCoursePage() {
 
     try {
         // -----------------------------------------------------
-        // STEP 1: Get secure signature from the Vercel Server Action
+        // STEP 1: Get secure signature from the Server Action
         // -----------------------------------------------------
         toast.loading("Preparing video upload...", { id: toastId });
         
-        // Use a clean, consistent file name for the server.
         const cleanFileName = fileToUpload.name.replace(/[^a-zA-Z0-9.\-]/g, '_');
         
-        // Use the explicit type definition from the Server Action
         const signatureResult: SignedUploadResult = await getSignedUploadSignature(cleanFileName);
 
-        // 🚨 FIX: Type Guard to check for success. If successful, TypeScript guarantees 
-        // that 'timestamp', 'public_id', etc., are defined.
         if (!signatureResult.success) {
             toast.dismiss(toastId);
-            toast.error(signatureResult.error); // Error is guaranteed to be a string here
+            toast.error(signatureResult.error);
             return;
         }
 
         const { timestamp, public_id, signature, cloudName, apiKey } = signatureResult;
         
-        // Final safety check for missing environment variables on the server (which caused previous issues)
         if (!cloudName || !apiKey) {
             toast.dismiss(toastId);
             toast.error("Cloudinary environment variables not configured on the server.");
@@ -414,19 +424,19 @@ export default function CreateCoursePage() {
         
         const uploadFormData = new FormData();
         uploadFormData.append('file', fileToUpload);
-        // apiKey is guaranteed to be a string now
         uploadFormData.append('api_key', apiKey); 
         
-        // 🚨 FIX: timestamp is guaranteed to be a number, resolving the compile error
+        // Ensure timestamp is a string
         uploadFormData.append('timestamp', timestamp.toString());
         
-        // CRITICAL: Use the exact public_id returned by the server
         uploadFormData.append('public_id', public_id); 
         
         uploadFormData.append('signature', signature);
-        // CRITICAL: These MUST match the options passed to api_sign_request on the server
         uploadFormData.append('folder', 'course_videos'); 
         uploadFormData.append('tags', 'nextjs-course-video'); 
+        // 🚨 CRITICAL: Must include resource_type for video uploads
+        uploadFormData.append('resource_type', 'video');
+
         
         toast.loading("Uploading video (this may take a minute)...", { id: toastId });
         
@@ -440,7 +450,11 @@ export default function CreateCoursePage() {
         if (!uploadResponse.ok || uploadData.error) {
             toast.dismiss(toastId);
             toast.error(`Video upload failed: ${uploadData.error.message || 'Unknown error'}`);
-            setVideoUploadState(prev => ({ ...prev, error: `Cloudinary error: ${uploadData.error.message || 'Check network.'}` }));
+            setVideoUploadState(prev => ({ 
+                ...prev, 
+                error: `Cloudinary error: ${uploadData.error.message || 'Check network.'}`, 
+                cloudinaryUrl: null 
+            }));
             return;
         }
 
@@ -491,17 +505,11 @@ export default function CreateCoursePage() {
     const { file, progress, url, error, cloudinaryUrl } = videoUploadState;
     const isReady = file && cloudinaryUrl && progress === 100;
 
-    const MAX_FILE_SIZE_MB = 2560; 
-    const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-
-    const handleVideoFile = (selectedFile: File) => {
-        if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
-            const sizeError = `File size exceeds the limit of ${MAX_FILE_SIZE_MB}MB (${(selectedFile.size / (1024 * 1024 * 1024)).toFixed(2)} GB). Please select a file smaller than 2.5 GB.`;
-            setVideoUploadState(prev => ({ ...prev, error: sizeError }));
-            toast.error(sizeError);
-            return;
+    // Use the component's handleFileUpload (which contains the size check)
+    const handleVideoFileChange = (selectedFile: File) => {
+        if (selectedFile) {
+            handleFileUpload(selectedFile);
         }
-        handleFileUpload(selectedFile);
     };
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -509,14 +517,14 @@ export default function CreateCoursePage() {
         e.stopPropagation(); 
         const droppedFile = e.dataTransfer.files[0];
         if (droppedFile) {
-            handleVideoFile(droppedFile);
+            handleVideoFileChange(droppedFile);
         }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            handleVideoFile(selectedFile);
+            handleVideoFileChange(selectedFile);
         }
         e.target.value = ''; 
     };
@@ -596,7 +604,8 @@ export default function CreateCoursePage() {
                 <UploadCloud className="h-10 w-10 text-indigo-600 mb-3" />
                 <p className="text-sm font-medium text-gray-700">Drag & drop your video file here</p>
                 <p className="text-xs text-gray-500 mt-1">or click to browse (MP4, MOV)</p>
-                <p className="text-xs text-gray-500 mt-1">Max file size: {MAX_FILE_SIZE_MB}MB ({ (MAX_FILE_SIZE_MB / 1024).toFixed(1)} GB)</p>
+                {/* 🔥 FIX: Display the 2.5 GB limit correctly */}
+                <p className="text-xs text-gray-500 mt-1">Max file size: {MAX_FILE_SIZE_GB} GB</p>
                 <Button 
                     type="button" 
                     onClick={handleClick} 
@@ -733,7 +742,7 @@ export default function CreateCoursePage() {
         <Button 
             type="submit" 
             className="w-full" 
-            disabled={!videoUploadState.file} 
+            disabled={!videoUploadState.file || videoUploadState.error !== null} 
         >
           {publishOption === 'draft' ? 'Save Draft' :
             publishOption === 'publish' ? 'Publish Course' :
