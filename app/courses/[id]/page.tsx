@@ -1,4 +1,4 @@
-// app/courses/[id]/page.tsx (Fixed for Cloudinary URLs)
+// app/courses/[id]/page.tsx (Fixed for Cloudinary URLs and added unselectable notes)
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link" 
@@ -167,15 +167,15 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
         <p className="text-gray-700 whitespace-pre-wrap">{course.description}</p>
       </div>
 
-      {/* Notes Section - Removed the Card component to eliminate the box/border */}
+      {/* Notes Section - Text selection disabled to prevent easy copying */}
       {course.notes && (
         <div className="space-y-4">
           <h2 className="text-xl md:text-2xl font-semibold border-b pb-2 flex items-center">
             <FileText className="h-5 w-5 mr-2 text-green-600" /> Course Notes
           </h2>
-          {/* 🌟 FIX: Replaced Card/CardContent with a simple div */}
+          {/* 🚫 FIX: Added 'select-none' Tailwind class (which applies user-select: none) */}
           <div 
-              className="p-4 md:p-6  w-full" 
+              className="p-4 md:p-6 w-full select-none" 
               dangerouslySetInnerHTML={{ __html: course.notes }} 
           />
         </div>
