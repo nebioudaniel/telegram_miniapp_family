@@ -1,9 +1,13 @@
+
 // app/courses/[id]/page.tsx (Fixed for Cloudinary URLs and added unselectable notes)
+
+// app/courses/[id]/page.tsx
+
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link" 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookOpen, User, Calendar, FileText, NotebookPen, ChevronLeft } from "lucide-react"
+import { User, Calendar, FileText, NotebookPen, ChevronLeft } from "lucide-react" // Removed BookOpen icon
 
 // Define the component props
 interface CourseDetailPageProps {
@@ -12,7 +16,8 @@ interface CourseDetailPageProps {
   }
 }
 
-// 🚨 FIX: Updated function to determine the correct video rendering method
+// 🚨 REMOVED: The entire getVideoSource function is no longer needed
+/*
 const getVideoSource = (url: string | null | undefined): { type: 'iframe' | 'video' | null, src: string | null } => {
   if (!url) return { type: null, src: null };
 
@@ -58,6 +63,7 @@ const getVideoSource = (url: string | null | undefined): { type: 'iframe' | 'vid
     return { type: null, src: null };
   }
 };
+*/
 
 
 export default async function CourseDetailPage({ params }: CourseDetailPageProps) {
@@ -81,7 +87,8 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
     return notFound()
   }
 
-  const videoContent = getVideoSource(course.videoUrl);
+  // 🚨 REMOVED: videoContent calculation is removed
+  // const videoContent = getVideoSource(course.videoUrl);
 
   return (
   
@@ -116,7 +123,8 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
         </div>
       </div>
 
-      {/* Video Section */}
+      {/* 🚨 REMOVED: The entire Video Section block is removed */}
+      {/*
       {videoContent.src && (
         <Card className="shadow-xl">
           <CardHeader>
@@ -128,7 +136,6 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
             className="relative aspect-video max-h-[500px] overflow-hidden p-0"
           > 
             
-            {/* Renders a standard iframe for embeds (e.g., YouTube) */}
             {videoContent.type === 'iframe' && (
                 <iframe
                   className="w-full h-full rounded-lg absolute top-0 left-0" 
@@ -139,15 +146,12 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                 ></iframe>
             )}
 
-            {/* Renders an HTML5 video player for our uploaded files (Cloudinary/Direct) */}
             {videoContent.type === 'video' && (
                 <video
                     className="w-full h-full rounded-lg absolute top-0 left-0 object-cover" 
-                    // 🚨 CRITICAL FIX: The src is now the Cloudinary URL
                     src={videoContent.src}
                     controls
                     preload="metadata"
-                    // Note: If you want a poster, you can use Cloudinary's auto-generated thumbnail here.
                     poster="/images/video-poster.jpg" 
                 >
                     Your browser does not support the video tag.
@@ -157,6 +161,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
           </CardContent>
         </Card>
       )}
+      */}
 
       {/* Description */}
       <div className="space-y-4">
