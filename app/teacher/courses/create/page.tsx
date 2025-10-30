@@ -12,16 +12,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from 'sonner'
 import { createCourse } from '../_actions/course.actions'
-import { getSignedUploadSignature, SignedUploadResult } from '../_actions/upload.actions' 
-import { Save, Clock, BookOpen, Video, FileText, Bold, Italic, Underline, List, Heading, Link, Pilcrow, UploadCloud, CheckCircle, XCircle, LucideIcon, Type, Minus, Check, ChevronsUpDown } from 'lucide-react'
+// import { getSignedUploadSignature, SignedUploadResult } from '../_actions/upload.actions' // Removed upload actions
+import { Save, Clock, BookOpen, FileText, Bold, Italic, Underline, List, Heading, Link, Pilcrow, Type, Minus, Check, ChevronsUpDown } from 'lucide-react' // Removed Video, UploadCloud, CheckCircle, XCircle
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils" 
 
-// 🔥 CRITICAL FIX CONSTANTS: Define the client-side max size to match the server (2.5 GB)
-const MAX_FILE_SIZE_GB = 100; 
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_GB * 1024 * 1024 * 1024;
+// 🔥 CRITICAL FIX CONSTANTS: Removed file size constants since video is removed
+// const MAX_FILE_SIZE_GB = 100; 
+// const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_GB * 1024 * 1024 * 1024;
 
 
 // Define the structure for Combobox options (RichTextEditor related, unchanged)
@@ -208,6 +208,10 @@ const RichTextEditor = ({ name, placeholder }: { name: string, placeholder: stri
         }
     }, []);
 
+    // NOTE: Removed the LucideIcon import from inside this component (it's in the main file)
+    // The type definition for LucideIcon is kept as it is used in ToolbarButton
+    type LucideIcon = typeof Bold; 
+
     const ToolbarButton = ({ icon: Icon, onClick, title, isActive = false }: { icon: LucideIcon, onClick: () => void, title: string, isActive?: boolean }) => (
         <Button 
             type="button" 
@@ -342,140 +346,22 @@ export default function CreateCoursePage() {
   const router = useRouter() 
   const [publishOption, setPublishOption] = useState<'draft' | 'publish' | 'schedule'>('draft')
 
-  const [videoUploadState, setVideoUploadState] = useState<{
-    file: File | null;
-    progress: number;
-    url: string | null;
-    error: string | null;
-    cloudinaryUrl: string | null; 
-  }>({ file: null, progress: 0, url: null, error: null, cloudinaryUrl: null });
+  // Removed all videoUploadState and related state
 
   const isAuthReady = true;
 
-  // 🔥 CRITICAL FIX: The logic in this function must perform the size check
-  const handleFileUpload = (file: File) => {
-    if (!file.type.startsWith('video/')) {
-        setVideoUploadState(prev => ({ ...prev, error: "File must be a video." }));
-        toast.error("File must be a video type.");
-        return;
-    }
-    
-    // 🔥 CRITICAL UX FIX: Client-side size check against the 2.5 GB limit
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-        const sizeError = `File size exceeds the limit of ${MAX_FILE_SIZE_GB}MB. Please select a smaller file.`;
-        setVideoUploadState(prev => ({ ...prev, error: sizeError, file: null, url: null }));
-        toast.error(sizeError);
-        return;
-    }
-
-
-    const localURL = URL.createObjectURL(file);
-    
-    setVideoUploadState({ 
-        file, 
-        progress: 0, 
-        url: localURL, 
-        error: null,
-        cloudinaryUrl: null
-    });
-  };
+  // Removed handleFileUpload function
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     const formData = new FormData(e.currentTarget);
     
-    if (!videoUploadState.file) {
-        toast.error("Please select a course video file.");
-        return;
-    }
+    // Removed video file checks and upload logic
 
-    const fileToUpload = videoUploadState.file;
-    const toastId = 'video-upload';
+    const toastId = 'course-creation';
 
     try {
-        // -----------------------------------------------------
-        // STEP 1: Get secure signature from the Server Action
-        // -----------------------------------------------------
-        toast.loading("Preparing video upload...", { id: toastId });
-        
-        const cleanFileName = fileToUpload.name.replace(/[^a-zA-Z0-9.\-]/g, '_');
-        
-        const signatureResult: SignedUploadResult = await getSignedUploadSignature(cleanFileName);
-
-        if (!signatureResult.success) {
-            toast.dismiss(toastId);
-            toast.error(signatureResult.error);
-            return;
-        }
-
-        const { timestamp, public_id, signature, cloudName, apiKey } = signatureResult;
-        
-        if (!cloudName || !apiKey) {
-            toast.dismiss(toastId);
-            toast.error("Cloudinary environment variables not configured on the server.");
-            return;
-        }
-
-        // -----------------------------------------------------
-        // STEP 2: Client uploads the large file DIRECTLY to Cloudinary
-        // -----------------------------------------------------
-        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
-        
-        const uploadFormData = new FormData();
-        uploadFormData.append('file', fileToUpload);
-        uploadFormData.append('api_key', apiKey); 
-        
-        // Ensure timestamp is a string
-        uploadFormData.append('timestamp', timestamp.toString());
-        
-        uploadFormData.append('public_id', public_id); 
-        
-        uploadFormData.append('signature', signature);
-        uploadFormData.append('folder', 'course_videos'); 
-        uploadFormData.append('tags', 'nextjs-course-video'); 
-        // 🚨 CRITICAL: Must include resource_type for video uploads
-        uploadFormData.append('resource_type', 'video');
-
-        
-        toast.loading("Uploading video (this may take a minute)...", { id: toastId });
-        
-        const uploadResponse = await fetch(uploadUrl, {
-            method: 'POST',
-            body: uploadFormData,
-        });
-
-        const uploadData = await uploadResponse.json();
-        
-        if (!uploadResponse.ok || uploadData.error) {
-            toast.dismiss(toastId);
-            toast.error(`Video upload failed: ${uploadData.error.message || 'Unknown error'}`);
-            setVideoUploadState(prev => ({ 
-                ...prev, 
-                error: `Cloudinary error: ${uploadData.error.message || 'Check network.'}`, 
-                cloudinaryUrl: null 
-            }));
-            return;
-        }
-
-        const finalVideoUrl = uploadData.secure_url; 
-        toast.success("Video uploaded successfully!", { id: toastId });
-        
-        // Update state with the final URL for potential re-submission
-        setVideoUploadState(prev => ({ 
-            ...prev, 
-            cloudinaryUrl: finalVideoUrl,
-            progress: 100 
-        }));
-
-
-        // -----------------------------------------------------
-        // STEP 3: Submit the small form data with the final URL to your Server Action
-        // -----------------------------------------------------
-        
-        formData.append('videoUrl', finalVideoUrl); 
-        formData.delete('videoFile'); 
-        
         formData.append('statusChoice', publishOption);
         
         if (publishOption === 'schedule' && !formData.get('scheduledDate')) {
@@ -483,9 +369,13 @@ export default function CreateCoursePage() {
             return;
         }
         
-        // Now call the lightweight createCourse action
+        toast.loading("Creating course...", { id: toastId });
+        
+        // Call the lightweight createCourse action
         const result = await createCourse(formData); 
         
+        toast.dismiss(toastId);
+
         if (result.success) {
             toast.success(result.message);
             router.push('/teacher/courses');
@@ -500,143 +390,8 @@ export default function CreateCoursePage() {
     }
   }
 
-  const VideoUploadArea = () => {
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const { file, progress, url, error, cloudinaryUrl } = videoUploadState;
-    const isReady = file && cloudinaryUrl && progress === 100;
-
-    // Use the component's handleFileUpload (which contains the size check)
-    const handleVideoFileChange = (selectedFile: File) => {
-        if (selectedFile) {
-            handleFileUpload(selectedFile);
-        }
-    };
-
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.stopPropagation(); 
-        const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile) {
-            handleVideoFileChange(droppedFile);
-        }
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            handleVideoFileChange(selectedFile);
-        }
-        e.target.value = ''; 
-    };
-
-    const handleClick = () => {
-         fileInputRef.current?.click();
-    };
-
-    let content;
-
-    if (isReady && url && file) {
-        content = (
-            <div className="flex flex-col w-full">
-                <div className="relative w-full h-auto rounded-lg overflow-hidden bg-black mb-4">
-                    <video 
-                        src={url} // Use local URL for preview
-                        controls 
-                        className="w-full max-h-[300px] object-contain"
-                        aria-label={`Preview of ${file.name}`}
-                    >
-                        Your browser does not support the video tag.
-                    </video>
-                </div>
-                <div className="flex justify-between items-center px-2">
-                    <div className='flex items-center text-green-600 space-x-2'>
-                        <CheckCircle className="h-5 w-5" />
-                        <p className="text-sm font-semibold truncate max-w-[200px]">{file.name} (Ready for submission)</p>
-                    </div>
-                    <Button 
-                        type="button" 
-                        variant="link" 
-                        onClick={handleClick} 
-                        className="text-indigo-600 p-0 h-auto text-sm"
-                    >
-                        Replace Video
-                    </Button>
-                </div>
-            </div>
-        );
-    } else if (file && !cloudinaryUrl) {
-        // State for "File selected, upload pending/in progress"
-        content = (
-            <div className="flex flex-col items-center text-amber-600 p-6">
-                <Video className="h-8 w-8 mb-2" />
-                <p className="text-sm font-medium">File Selected</p>
-                <p className="text-xs text-center text-amber-500 mt-1">{file.name}</p>
-                <p className="text-xs text-gray-500 mt-1">Click the final submit button to upload to Cloudinary.</p>
-                <Button 
-                    type="button" 
-                    variant="link" 
-                    onClick={handleClick} 
-                    className="mt-2 text-indigo-600 p-0 h-auto"
-                >
-                    Replace Video
-                </Button>
-            </div>
-        );
-    } else if (error) {
-        content = (
-            <div className="flex flex-col items-center text-red-600 p-6">
-                <XCircle className="h-8 w-8 mb-2" />
-                <p className="text-sm font-medium">Selection Error</p>
-                <p className="text-xs text-center text-red-500 mt-1">{error}</p>
-                <Button 
-                    type="button" 
-                    variant="link" 
-                    onClick={handleClick} 
-                    className="mt-2 text-indigo-600 p-0 h-auto"
-                >
-                    Try Selecting Again
-                </Button>
-            </div>
-        );
-    } else {
-        content = (
-            <div className="flex flex-col items-center p-6">
-                <UploadCloud className="h-10 w-10 text-indigo-600 mb-3" />
-                <p className="text-sm font-medium text-gray-700">Drag & drop your video file here</p>
-                <p className="text-xs text-gray-500 mt-1">or click to browse (MP4, MOV)</p>
-                {/* 🔥 FIX: Display the 2.5 GB limit correctly */}
-                <p className="text-xs text-gray-500 mt-1">Max file size: {MAX_FILE_SIZE_GB} GB</p>
-                <Button 
-                    type="button" 
-                    onClick={handleClick} 
-                    className="mt-4 bg-indigo-600 hover:bg-indigo-700 transition-colors"
-                >
-                    Choose Video File
-                </Button>
-            </div>
-        );
-    }
-
-    return (
-        <div 
-            className={`border-2 border-dashed ${error ? 'border-red-400 bg-red-50/50' : isReady ? 'border-green-400' : 'border-gray-300'} rounded-lg p-4 transition-colors bg-white/70 flex justify-center items-center ${isReady ? 'min-h-auto' : 'min-h-[200px]'} cursor-pointer `}
-            onDrop={handleDrop}
-            onDragOver={(e) => e.preventDefault()}
-            onClick={!isReady && !error && !file ? handleClick : undefined} // Prevent click if file is selected but upload not done
-        >
-            <input 
-                ref={fileInputRef}
-                type="file" 
-                accept="video/*" 
-                onChange={handleFileChange}
-                className="hidden"
-            />
-            <div className='w-full'>
-                {content}
-            </div>
-        </div>
-    );
-  };
+  // Removed VideoUploadArea component
+  // const VideoUploadArea = () => { ... }
 
 
   return (
@@ -668,13 +423,14 @@ export default function CreateCoursePage() {
           </CardHeader>
           <CardContent className="space-y-6">
             
-            <div className="grid gap-2">
+            {/* Removed the Course Video File Upload div completely */}
+            {/* <div className="grid gap-2">
                 <Label className='flex items-center space-x-2'>
                     <Video className="h-4 w-4 text-primary" /> 
                     <span>Course Video File Upload</span>
                 </Label>
                 <VideoUploadArea />
-            </div>
+            </div> */}
 
             <div className="grid gap-2">
                 <Label htmlFor="notes" className='flex items-center space-x-2'>
@@ -742,7 +498,7 @@ export default function CreateCoursePage() {
         <Button 
             type="submit" 
             className="w-full" 
-            disabled={!videoUploadState.file || videoUploadState.error !== null} 
+            // Removed video-related disabled check: disabled={!videoUploadState.file || videoUploadState.error !== null} 
         >
           {publishOption === 'draft' ? 'Save Draft' :
             publishOption === 'publish' ? 'Publish Course' :
