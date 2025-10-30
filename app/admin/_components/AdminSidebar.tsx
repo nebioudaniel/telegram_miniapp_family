@@ -4,7 +4,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 // 🎯 FIX: Remove 'Code' from the import list
-import { LayoutDashboard, BookOpen, Users, LogOut, Menu } from "lucide-react" 
+import { LayoutDashboard, BookOpen, Users, LogOut, UserRoundPen,Menu } from "lucide-react" 
 import { signOut } from "next-auth/react"
 
 // Import shadcn/ui components
@@ -19,6 +19,7 @@ const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/admin/teachers", icon: Users, label: "Manage Teachers" },
   { href: "/admin/courses", icon: BookOpen, label: "All Courses" },
+  { href: "/admin/profile", icon: UserRoundPen, label: "Profile" },
 ]
 
 // Separate the navigation links into a reusable component
