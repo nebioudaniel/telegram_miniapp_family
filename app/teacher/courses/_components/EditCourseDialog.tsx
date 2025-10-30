@@ -74,7 +74,6 @@ export default function EditCourseDialog({ courseId, children }: EditCourseDialo
   React.useEffect(() => {
     if (open) {
       // 🌟 FIX 1: Explicitly reset course state before fetching new data.
-      // This ensures the loader is visible immediately and removes old data.
       setCourse(null) 
       setNotesContent("")
 
@@ -89,8 +88,6 @@ export default function EditCourseDialog({ courseId, children }: EditCourseDialo
         })
     }
     // 🌟 FIX 2: Added cleanup logic for when the dialog closes.
-    // When the dialog closes (open becomes false), clear the course state.
-    // This prevents old data from flashing when re-opening the dialog for a new course.
     return () => {
         if (!open) {
             setCourse(null)
@@ -220,8 +217,8 @@ export default function EditCourseDialog({ courseId, children }: EditCourseDialo
               />
             </div>
 
-            {/* Video URL */}
-            <div className="space-y-2">
+            {/* Removed the Video URL input section here */}
+            {/* <div className="space-y-2">
               <Label htmlFor="videoUrl">Video URL (YouTube/Vimeo)</Label>
               <Input
                 id="videoUrl"
@@ -230,6 +227,7 @@ export default function EditCourseDialog({ courseId, children }: EditCourseDialo
                 placeholder="https://www.youtube.com/watch?v=..."
               />
             </div>
+            */}
 
             {/* 📝 Notes (Tiptap Editor) */}
             <div className="space-y-2">
